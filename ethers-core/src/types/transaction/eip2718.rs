@@ -37,6 +37,9 @@ pub enum TypedTransaction {
     // 0x02
     #[serde(rename = "0x02")]
     Eip1559(Eip1559TransactionRequest),
+    // 0x7e
+    #[serde(rename = "0x7e")]
+    Deposit(DepositTransactionRequest),
 }
 
 /// An error involving a typed transaction request.
@@ -51,6 +54,9 @@ pub enum TypedTransactionError {
     /// When decoding a signed Eip2930 transaction
     #[error(transparent)]
     Eip2930Error(#[from] Eip2930RequestError),
+    /// When decoding a Kroma Deposit transaction
+    #[error(transparent)]
+    DepositError(#[from] DepositRequestError),
     /// Error decoding the transaction type from the transaction's RLP encoding
     #[error(transparent)]
     TypeDecodingError(#[from] rlp::DecoderError),
@@ -76,6 +82,7 @@ impl Default for TypedTransaction {
     }
 }
 
+use crate::types::{transaction::deposit::DepositRequestError, DepositTransactionRequest};
 use TypedTransaction::*;
 
 impl TypedTransaction {
@@ -84,6 +91,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.from.as_ref(),
             Eip2930(inner) => inner.tx.from.as_ref(),
             Eip1559(inner) => inner.from.as_ref(),
+            Deposit(inner) => inner.from.as_ref(),
         }
     }
 
@@ -92,6 +100,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.from = Some(from),
             Eip2930(inner) => inner.tx.from = Some(from),
             Eip1559(inner) => inner.from = Some(from),
+            Deposit(inner) => inner.from = Some(from),
         };
         self
     }
@@ -101,6 +110,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.to.as_ref(),
             Eip2930(inner) => inner.tx.to.as_ref(),
             Eip1559(inner) => inner.to.as_ref(),
+            Deposit(inner) => inner.to.as_ref(),
         }
     }
 
@@ -114,6 +124,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.to = Some(to),
             Eip2930(inner) => inner.tx.to = Some(to),
             Eip1559(inner) => inner.to = Some(to),
+            Deposit(inner) => inner.to = Some(to),
         };
         self
     }
@@ -123,6 +134,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.nonce.as_ref(),
             Eip2930(inner) => inner.tx.nonce.as_ref(),
             Eip1559(inner) => inner.nonce.as_ref(),
+            Deposit(_) => None,
         }
     }
 
@@ -132,6 +144,9 @@ impl TypedTransaction {
             Legacy(inner) => inner.nonce = Some(nonce),
             Eip2930(inner) => inner.tx.nonce = Some(nonce),
             Eip1559(inner) => inner.nonce = Some(nonce),
+            Deposit(_) => {
+                panic!("Kroma deposit transaction does not have nonce.")
+            }
         };
         self
     }
@@ -141,6 +156,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.value.as_ref(),
             Eip2930(inner) => inner.tx.value.as_ref(),
             Eip1559(inner) => inner.value.as_ref(),
+            Deposit(inner) => inner.value.as_ref(),
         }
     }
 
@@ -150,6 +166,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.value = Some(value),
             Eip2930(inner) => inner.tx.value = Some(value),
             Eip1559(inner) => inner.value = Some(value),
+            Deposit(inner) => inner.value = Some(value),
         };
         self
     }
@@ -159,6 +176,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.gas.as_ref(),
             Eip2930(inner) => inner.tx.gas.as_ref(),
             Eip1559(inner) => inner.gas.as_ref(),
+            Deposit(inner) => inner.gas.as_ref(),
         }
     }
 
@@ -167,6 +185,7 @@ impl TypedTransaction {
             Legacy(inner) => &mut inner.gas,
             Eip2930(inner) => &mut inner.tx.gas,
             Eip1559(inner) => &mut inner.gas,
+            Deposit(inner) => &mut inner.gas,
         }
     }
 
@@ -176,6 +195,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.gas = Some(gas),
             Eip2930(inner) => inner.tx.gas = Some(gas),
             Eip1559(inner) => inner.gas = Some(gas),
+            Deposit(inner) => inner.gas = Some(gas),
         };
         self
     }
@@ -192,6 +212,7 @@ impl TypedTransaction {
                     (max_fee, None) => max_fee,
                 }
             }
+            Deposit(_) => None,
         }
     }
 
@@ -204,6 +225,9 @@ impl TypedTransaction {
                 inner.max_fee_per_gas = Some(gas_price);
                 inner.max_priority_fee_per_gas = Some(gas_price);
             }
+            Deposit(_) => {
+                panic!("Kroma deposit transaction does not have gas price.")
+            }
         };
         self
     }
@@ -213,6 +237,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.chain_id,
             Eip2930(inner) => inner.tx.chain_id,
             Eip1559(inner) => inner.chain_id,
+            Deposit(_) => None,
         }
     }
 
@@ -222,6 +247,9 @@ impl TypedTransaction {
             Legacy(inner) => inner.chain_id = Some(chain_id),
             Eip2930(inner) => inner.tx.chain_id = Some(chain_id),
             Eip1559(inner) => inner.chain_id = Some(chain_id),
+            Deposit(_) => {
+                panic!("Kroma deposit transaction does not have chain id.")
+            }
         };
         self
     }
@@ -231,6 +259,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.data.as_ref(),
             Eip2930(inner) => inner.tx.data.as_ref(),
             Eip1559(inner) => inner.data.as_ref(),
+            Deposit(inner) => inner.data.as_ref(),
         }
     }
 
@@ -239,6 +268,7 @@ impl TypedTransaction {
             Legacy(_) => None,
             Eip2930(inner) => Some(&inner.access_list),
             Eip1559(inner) => Some(&inner.access_list),
+            Deposit(_) => None,
         }
     }
 
@@ -247,6 +277,9 @@ impl TypedTransaction {
             Legacy(_) => {}
             Eip2930(inner) => inner.access_list = access_list,
             Eip1559(inner) => inner.access_list = access_list,
+            Deposit(_) => {
+                panic!("Kroma deposit transaction does not have access list.")
+            }
         };
         self
     }
@@ -256,6 +289,7 @@ impl TypedTransaction {
             Legacy(inner) => inner.data = Some(data),
             Eip2930(inner) => inner.tx.data = Some(data),
             Eip1559(inner) => inner.data = Some(data),
+            Deposit(inner) => inner.data = Some(data),
         };
         self
     }
@@ -274,6 +308,10 @@ impl TypedTransaction {
                 encoded.extend_from_slice(&[0x2]);
                 encoded.extend_from_slice(inner.rlp_signed(signature).as_ref());
             }
+            Deposit(inner) => {
+                encoded.extend_from_slice(&[0x7e]);
+                encoded.extend_from_slice(inner.rlp_signed().as_ref());
+            }
         };
         encoded.into()
     }
@@ -290,6 +328,10 @@ impl TypedTransaction {
             }
             Eip1559(inner) => {
                 encoded.extend_from_slice(&[0x2]);
+                encoded.extend_from_slice(inner.rlp().as_ref());
+            }
+            Deposit(inner) => {
+                encoded.extend_from_slice(&[0x7e]);
                 encoded.extend_from_slice(inner.rlp().as_ref());
             }
         };
@@ -343,6 +385,12 @@ impl TypedTransaction {
             let decoded_request = Eip1559TransactionRequest::decode_signed_rlp(&rest)?;
             return Ok((Self::Eip1559(decoded_request.0), decoded_request.1))
         }
+        if first == 0x7e {
+            // Kroma deposit transaction
+            let decoded_request = DepositTransactionRequest::decode_rlp(&rest)?;
+            let sig = Signature { r: U256::zero(), s: U256::zero(), v: 0 as u64 };
+            return Ok((Self::Deposit(decoded_request), sig))
+        }
 
         Err(rlp::DecoderError::Custom("invalid tx type").into())
     }
@@ -367,6 +415,10 @@ impl Decodable for TypedTransaction {
             Some(x) if x == U64::from(2) => {
                 // EIP-1559 (0x02)
                 Ok(Self::Eip1559(Eip1559TransactionRequest::decode(&rest)?))
+            }
+            Some(x) if x == U64::from(126) => {
+                // Kroma deposit transaction (0x7e)
+                Ok(Self::Deposit(DepositTransactionRequest::decode(&rest)?))
             }
             _ => {
                 // Legacy (0x00)
@@ -395,6 +447,22 @@ impl From<Eip1559TransactionRequest> for TypedTransaction {
     }
 }
 
+impl From<DepositTransactionRequest> for TypedTransaction {
+    fn from(src: DepositTransactionRequest) -> TypedTransaction {
+        if src.source_hash.is_none() |
+            src.from.is_none() |
+            src.to.is_none() |
+            src.mint.is_none() |
+            src.value.is_none() |
+            src.gas.is_none() |
+            src.data.is_none()
+        {
+            panic!("Kroma deposit transaction must not have None value")
+        }
+        TypedTransaction::Deposit(src)
+    }
+}
+
 impl From<&Transaction> for TypedTransaction {
     fn from(tx: &Transaction) -> TypedTransaction {
         match tx.transaction_type {
@@ -406,6 +474,11 @@ impl From<&Transaction> for TypedTransaction {
             // EIP-1559 (0x02)
             Some(x) if x == U64::from(2) => {
                 let request: Eip1559TransactionRequest = tx.into();
+                request.into()
+            }
+            // Kroma deposit transaction (0x7e)
+            Some(x) if x == U64::from(126) => {
+                let request: DepositTransactionRequest = tx.into();
                 request.into()
             }
             // Legacy (0x00)
@@ -436,6 +509,12 @@ impl TypedTransaction {
             _ => None,
         }
     }
+    pub fn as_deposit_ref(&self) -> Option<&DepositTransactionRequest> {
+        match self {
+            Deposit(tx) => Some(tx),
+            _ => None,
+        }
+    }
 
     pub fn as_legacy_mut(&mut self) -> Option<&mut TransactionRequest> {
         match self {
@@ -452,6 +531,12 @@ impl TypedTransaction {
     pub fn as_eip1559_mut(&mut self) -> Option<&mut Eip1559TransactionRequest> {
         match self {
             Eip1559(tx) => Some(tx),
+            _ => None,
+        }
+    }
+    pub fn as_deposit_mut(&mut self) -> Option<&mut DepositTransactionRequest> {
+        match self {
+            Deposit(tx) => Some(tx),
             _ => None,
         }
     }
@@ -487,7 +572,7 @@ impl TypedTransaction {
         match self {
             Legacy(tx) => tx,
             Eip2930(tx) => tx.tx,
-            Eip1559(_) => TransactionRequest {
+            Eip1559(_) | Deposit(_) => TransactionRequest {
                 from: self.from().copied(),
                 to: self.to().cloned(),
                 nonce: self.nonce().copied(),
@@ -523,7 +608,7 @@ impl TypedTransaction {
         match self {
             Eip2930(tx) => tx,
             Legacy(tx) => Eip2930TransactionRequest { tx, access_list },
-            Eip1559(_) => Eip2930TransactionRequest {
+            Eip1559(_) | Deposit(_) => Eip2930TransactionRequest {
                 tx: TransactionRequest {
                     from: self.from().copied(),
                     to: self.to().cloned(),
@@ -576,6 +661,39 @@ mod tests {
 
         let de: TransactionRequest = serde_json::from_str(&serialized).unwrap();
         assert_eq!(tx, TypedTransaction::Legacy(de));
+    }
+
+    #[test]
+    fn serde_deposit_tx() {
+        let tx = DepositTransactionRequest::new()
+            .source_hash(
+                H256::from_str(
+                    "0x03978998c47aeb48300ca2d447c39b66705f5442cf7f7b255f6fbbed8a7ff985",
+                )
+                .unwrap(),
+            )
+            .from(Address::from_str("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001").unwrap())
+            .to(Address::from_str("0x4200000000000000000000000000000000000002").unwrap())
+            .mint(U256::from(0))
+            .value(U256::from(0))
+            .gas(U256::from(1000000))
+            .data(Bytes::from_str("0xefc674eb00000000000000000000000000000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000064c31d8f00000000000000000000000000000000000000000000000000000000120535f8ef16bfe6d35d4216950df5634cb24cde7b3a183b16108d63e66d25a75f42eeaa00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc000000000000000000000000000000000000000000000000000000000000083400000000000000000000000000000000000000000000000000000000000f424000000000000000000000000000000000000000000000000000000000000007d0").unwrap());
+        let tx: TypedTransaction = tx.into();
+        let serialized = serde_json::to_string(&tx).unwrap();
+
+        // deserializes to either the envelope type or the inner type
+        let de: TypedTransaction = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(tx, de);
+
+        let de: DepositTransactionRequest = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(tx, TypedTransaction::Deposit(de));
+
+        let dummy_sig = Signature::default();
+        let tx_hash = tx.hash(&dummy_sig);
+        let expected_tx_hash =
+            H256::from_str("88fadf7173bfde177e03873165c4e77f60f5293a5a130294937ea47d1618f426")
+                .unwrap();
+        assert_eq!(tx_hash, expected_tx_hash)
     }
 
     #[test]

@@ -84,6 +84,9 @@ where
                     }
                 }
             }
+            TypedTransaction::Deposit(_) => {
+                panic!("kroma deposit transaction is not supported.")
+            }
         };
 
         self.inner().fill_transaction(tx, block).await.map_err(FromErr::from)

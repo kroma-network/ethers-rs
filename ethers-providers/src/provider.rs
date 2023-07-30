@@ -350,6 +350,9 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
                     inner.max_priority_fee_per_gas = Some(max_priority_fee_per_gas);
                 };
             }
+            TypedTransaction::Deposit(_) => {
+                panic!("kroma deposit transaction is not supported.")
+            }
         }
 
         // Set gas to estimated value only if it was not set by the caller,

@@ -12,6 +12,7 @@ pub use transaction::{
     deposit::DepositTransactionRequest,
     eip1559::Eip1559TransactionRequest,
     eip2930::Eip2930TransactionRequest,
+    eip2718::TypedTransaction,
     request::TransactionRequest,
     response::{Transaction, TransactionReceipt},
 };
