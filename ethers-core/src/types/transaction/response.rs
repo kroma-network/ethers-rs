@@ -9,7 +9,7 @@ use crate::{
 };
 use rlp::{Decodable, DecoderError, RlpStream};
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, str::FromStr};
 
 /// Details of a signed transaction
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -171,6 +171,27 @@ impl Transaction {
                     rlp.append(&normalize_v(self.v.as_u64(), U64::from(chain_id.as_u64())));
                 }
             }
+            // Kroma Deposit Transaction (0x7e)
+            Some(x) if x == U64::from(0x7e) => {
+                let source_hash = self
+                    .other
+                    .get("sourceHash")
+                    .map(|v| H256::from_str(v.as_str().unwrap()).unwrap())
+                    .unwrap();
+                let mint = self
+                    .other
+                    .get("mint")
+                    .map(|v| U256::from_str(v.as_str().unwrap()).unwrap())
+                    .unwrap();
+
+                rlp.append(&source_hash);
+                rlp.append(&self.from);
+                rlp_opt(&mut rlp, &self.to);
+                rlp.append(&mint);
+                rlp.append(&self.value);
+                rlp.append(&self.gas);
+                rlp.append(&self.input.as_ref());
+            }
             // Legacy (0x00)
             _ => {
                 rlp.append(&self.nonce);
@@ -187,8 +208,15 @@ impl Transaction {
             }
         }
 
-        rlp.append(&self.r);
-        rlp.append(&self.s);
+        match self.transaction_type {
+            Some(x) if x == U64::from(0x7e) => {
+                // Kroma Deposit Transaction does not have signature to encode
+            }
+            _ => {
+                rlp.append(&self.r);
+                rlp.append(&self.s);
+            }
+        }
 
         rlp.finalize_unbounded_list();
 
@@ -202,6 +230,11 @@ impl Transaction {
             }
             Some(x) if x == U64::from(2) => {
                 encoded.extend_from_slice(&[0x2]);
+                encoded.extend_from_slice(rlp_bytes.as_ref());
+                encoded.into()
+            }
+            Some(x) if x == U64::from(0x7e) => {
+                encoded.extend_from_slice(&[0x7e]);
                 encoded.extend_from_slice(rlp_bytes.as_ref());
                 encoded.into()
             }
@@ -291,6 +324,38 @@ impl Transaction {
         Ok(())
     }
 
+    /// Decodes fields of the type 0x7E transaction response starting at the RLP offset passed.
+    /// Increments the offset for each element parsed
+    /// https://github.com/scroll-tech/go-ethereum/blob/b2948719ffac5e66882990b8bfee35e522d9d5f2/core/types/l1_message_tx.go#L10-L17
+    fn decode_base_deposit_tx(
+        &mut self,
+        rlp: &rlp::Rlp,
+        offset: &mut usize,
+    ) -> Result<(), DecoderError> {
+        let source_hash: H256 = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.from = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.to = Some(rlp.val_at(*offset)?);
+        *offset += 1;
+        let mint: U256 = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.value = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.gas = rlp.val_at(*offset)?;
+        *offset += 1;
+        let input = rlp::Rlp::new(rlp.at(*offset)?.as_raw()).data()?;
+        self.input = Bytes::from(input.to_vec());
+        *offset += 1;
+
+        let mint_json_string = format!("\"mint\": \"{mint:#?}\"");
+        let source_hash_json_string = format!("\"sourceHash\": \"{source_hash:#?}\"");
+        let json_value = format!("{{{mint_json_string}, {source_hash_json_string}}}");
+        self.other = serde_json::from_str(json_value.as_str()).unwrap();
+
+        Ok(())
+    }
+
     /// Decodes a legacy transaction starting at the RLP offset passed.
     /// Increments the offset for each element parsed.
     #[inline]
@@ -361,6 +426,12 @@ impl Decodable for Transaction {
             Some(x) if x == U64::from(2) => {
                 // EIP-1559 (0x02)
                 txn.decode_base_eip1559(&rest, &mut offset)?;
+            }
+            Some(x) if x == U64::from(0x7e) => {
+                // Kroma Deposit Transaction (0x7e)
+                txn.decode_base_deposit_tx(&rest, &mut offset)?;
+                // L1 Message does not have signature
+                return Ok(txn)
             }
             _ => {
                 // Legacy (0x00)
@@ -795,6 +866,42 @@ mod tests {
         let decoded_transaction = Transaction::decode(&rlp::Rlp::new(&rlp_bytes)).unwrap();
 
         assert_eq!(decoded_transaction.hash(), tx.hash());
+    }
+
+    #[test]
+    fn encode_rlp_kroma_deposit_tx() {
+        let tx: Transaction = serde_json::from_str(
+            r#"{
+                "blockHash": "0x85a7660992e79203e3896ac8d80352bdc05fcbb29ea99be481b6fd33d1b7147c",
+                "blockNumber": "0x13",
+                "from": "0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001",
+                "gas": "0xf4240",
+                "gasPrice": "0x0",
+                "hash": "0x88fadf7173bfde177e03873165c4e77f60f5293a5a130294937ea47d1618f426",
+                "input": "0xefc674eb00000000000000000000000000000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000064c31d8f00000000000000000000000000000000000000000000000000000000120535f8ef16bfe6d35d4216950df5634cb24cde7b3a183b16108d63e66d25a75f42eeaa00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc000000000000000000000000000000000000000000000000000000000000083400000000000000000000000000000000000000000000000000000000000f424000000000000000000000000000000000000000000000000000000000000007d0",
+                "nonce": "0x13",
+                "to": "0x4200000000000000000000000000000000000002",
+                "transactionIndex": "0x0",
+                "value": "0x0",
+                "type": "0x7e",
+                "v": "0x0",
+                "r": "0x0",
+                "s": "0x0",
+                "sourceHash": "0x03978998c47aeb48300ca2d447c39b66705f5442cf7f7b255f6fbbed8a7ff985",
+                "mint": "0x0"
+            }"#
+        ).unwrap();
+
+        assert_eq!(tx.hash(), tx.hash);
+
+        let rlp_bytes = tx.rlp().to_vec();
+        let decoded_tx = Transaction::decode(&rlp::Rlp::new(&rlp_bytes)).unwrap();
+
+        assert_eq!(tx.gas, decoded_tx.gas);
+        assert_eq!(tx.to, decoded_tx.to);
+        assert_eq!(tx.value, decoded_tx.value);
+        assert_eq!(tx.input, decoded_tx.input);
+        assert_eq!(tx.from, decoded_tx.from);
     }
 
     #[test]
