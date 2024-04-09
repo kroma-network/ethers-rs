@@ -117,6 +117,7 @@ async fn gas_now() {
 }
 
 #[tokio::test]
+#[ignore = "the domain for the gas oracle is currently not available"]
 async fn polygon() {
     let polygon_oracle = Polygon::default();
     let gas_price = polygon_oracle.fetch().await.unwrap();
