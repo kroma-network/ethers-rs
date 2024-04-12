@@ -121,7 +121,7 @@ impl From<&Transaction> for OptimismDepositedTransactionRequest {
 }
 
 #[cfg(feature = "optimism")]
-#[cfg(not(feature = "celo"))]
+#[cfg(all(not(feature = "celo"), not(feature = "kroma")))]
 #[cfg(test)]
 mod test {
 

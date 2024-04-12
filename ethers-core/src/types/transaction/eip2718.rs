@@ -18,6 +18,9 @@ use super::optimism_deposited::{
     OptimismDepositedRequestError, OptimismDepositedTransactionRequest,
 };
 
+#[cfg(feature = "kroma")]
+use super::kroma_deposited::{KromaDepositedRequestError, KromaDepositedTransactionRequest};
+
 /// The TypedTransaction enum represents all Ethereum transaction types.
 ///
 /// Its variants correspond to specific allowed transactions:
@@ -46,6 +49,10 @@ pub enum TypedTransaction {
     #[cfg(feature = "optimism")]
     #[serde(rename = "0x7E")]
     OptimismDeposited(OptimismDepositedTransactionRequest),
+    // 0x7E
+    #[cfg(feature = "kroma")]
+    #[serde(rename = "0x7E")]
+    KromaDeposited(KromaDepositedTransactionRequest),
 }
 
 /// An error involving a typed transaction request.
@@ -64,6 +71,10 @@ pub enum TypedTransactionError {
     #[cfg(feature = "optimism")]
     #[error(transparent)]
     OptimismDepositedError(#[from] OptimismDepositedRequestError),
+    /// When decoding a Kroma Deposited transaction
+    #[cfg(feature = "kroma")]
+    #[error(transparent)]
+    KromaDepositedError(#[from] KromaDepositedRequestError),
     /// Error decoding the transaction type from the transaction's RLP encoding
     #[error(transparent)]
     TypeDecodingError(#[from] rlp::DecoderError),
@@ -99,6 +110,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.from.as_ref(),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.from.as_ref(),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.from.as_ref(),
         }
     }
 
@@ -109,6 +122,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.from = Some(from),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.from = Some(from),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.from = Some(from),
         };
         self
     }
@@ -120,6 +135,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.to.as_ref(),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.to.as_ref(),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.to.as_ref(),
         }
     }
 
@@ -135,6 +152,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.to = Some(to),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.to = Some(to),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.to = Some(to),
         };
         self
     }
@@ -146,6 +165,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.nonce.as_ref(),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.nonce.as_ref(),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => None,
         }
     }
 
@@ -157,6 +178,10 @@ impl TypedTransaction {
             Eip1559(inner) => inner.nonce = Some(nonce),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.nonce = Some(nonce),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => {
+                panic!("Kroma deposited transaction does not have nonce.")
+            }
         };
         self
     }
@@ -168,6 +193,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.value.as_ref(),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.value.as_ref(),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.value.as_ref(),
         }
     }
 
@@ -179,6 +206,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.value = Some(value),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.value = Some(value),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.value = Some(value),
         };
         self
     }
@@ -190,6 +219,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.gas.as_ref(),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.gas.as_ref(),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.gas.as_ref(),
         }
     }
 
@@ -200,6 +231,8 @@ impl TypedTransaction {
             Eip1559(inner) => &mut inner.gas,
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => &mut inner.tx.gas,
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => &mut inner.gas,
         }
     }
 
@@ -211,6 +244,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.gas = Some(gas),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.gas = Some(gas),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.gas = Some(gas),
         };
         self
     }
@@ -229,6 +264,8 @@ impl TypedTransaction {
             }
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.gas_price,
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => None,
         }
     }
 
@@ -243,6 +280,10 @@ impl TypedTransaction {
             }
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.gas_price = Some(gas_price),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => {
+                panic!("Kroma Deposited transaction does not have gas price.")
+            }
         };
         self
     }
@@ -254,6 +295,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.chain_id,
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.chain_id,
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => None,
         }
     }
 
@@ -265,6 +308,10 @@ impl TypedTransaction {
             Eip1559(inner) => inner.chain_id = Some(chain_id),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.chain_id = Some(chain_id),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => {
+                panic!("Kroma Deposited transaction does not have chain id.")
+            }
         };
         self
     }
@@ -276,6 +323,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.data.as_ref(),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.data.as_ref(),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.data.as_ref(),
         }
     }
 
@@ -286,6 +335,8 @@ impl TypedTransaction {
             Eip1559(inner) => Some(&inner.access_list),
             #[cfg(feature = "optimism")]
             OptimismDeposited(_) => None,
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => None,
         }
     }
 
@@ -296,6 +347,10 @@ impl TypedTransaction {
             Eip1559(inner) => inner.access_list = access_list,
             #[cfg(feature = "optimism")]
             OptimismDeposited(_) => {}
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => {
+                panic!("Kroma Deposited transaction does not have access list.")
+            }
         };
         self
     }
@@ -307,6 +362,8 @@ impl TypedTransaction {
             Eip1559(inner) => inner.data = Some(data),
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => inner.tx.data = Some(data),
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => inner.data = Some(data),
         };
         self
     }
@@ -330,6 +387,11 @@ impl TypedTransaction {
                 encoded.extend_from_slice(&[0x7E]);
                 encoded.extend_from_slice(inner.rlp().as_ref());
             }
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => {
+                encoded.extend_from_slice(&[0x7E]);
+                encoded.extend_from_slice(inner.rlp_signed().as_ref());
+            }
         };
         encoded.into()
     }
@@ -350,6 +412,10 @@ impl TypedTransaction {
             }
             #[cfg(feature = "optimism")]
             OptimismDeposited(inner) => {
+                encoded.extend_from_slice(&[0x7E]);
+            }
+            #[cfg(feature = "kroma")]
+            KromaDeposited(inner) => {
                 encoded.extend_from_slice(&[0x7E]);
                 encoded.extend_from_slice(inner.rlp().as_ref());
             }
@@ -410,6 +476,12 @@ impl TypedTransaction {
             let decoded_request = OptimismDepositedTransactionRequest::decode_signed_rlp(&rest)?;
             return Ok((Self::OptimismDeposited(decoded_request.0), decoded_request.1))
         }
+        #[cfg(feature = "kroma")]
+        if first == 0x7E {
+            // Kroma Deposited (0x7E)
+            let decoded_request = KromaDepositedTransactionRequest::decode_signed_rlp(&rest)?;
+            return Ok((Self::KromaDeposited(decoded_request.0), decoded_request.1))
+        }
 
         Err(rlp::DecoderError::Custom("invalid tx type").into())
     }
@@ -439,6 +511,11 @@ impl Decodable for TypedTransaction {
             Some(x) if x == U64::from(0x7E) => {
                 // Optimism Deposited (0x7E)
                 Ok(Self::OptimismDeposited(OptimismDepositedTransactionRequest::decode(&rest)?))
+            }
+            #[cfg(feature = "kroma")]
+            Some(x) if x == U64::from(0x7E) => {
+                // Kroma Deposited (0x7E)
+                Ok(Self::KromaDeposited(KromaDepositedTransactionRequest::decode(&rest)?))
             }
             _ => {
                 // Legacy (0x00)
@@ -474,6 +551,13 @@ impl From<OptimismDepositedTransactionRequest> for TypedTransaction {
     }
 }
 
+#[cfg(feature = "kroma")]
+impl From<KromaDepositedTransactionRequest> for TypedTransaction {
+    fn from(src: KromaDepositedTransactionRequest) -> TypedTransaction {
+        TypedTransaction::KromaDeposited(src)
+    }
+}
+
 impl From<&Transaction> for TypedTransaction {
     fn from(tx: &Transaction) -> TypedTransaction {
         match tx.transaction_type {
@@ -491,6 +575,12 @@ impl From<&Transaction> for TypedTransaction {
             // Optimism Deposited (0x7E)
             Some(x) if x == U64::from(0x7E) => {
                 let request: OptimismDepositedTransactionRequest = tx.into();
+                request.into()
+            }
+            #[cfg(feature = "kroma")]
+            // Kroma Deposited (0x7E)
+            Some(x) if x == U64::from(0x7E) => {
+                let request: KromaDepositedTransactionRequest = tx.into();
                 request.into()
             }
             // Legacy (0x00)
@@ -528,6 +618,13 @@ impl TypedTransaction {
             _ => None,
         }
     }
+    #[cfg(feature = "kroma")]
+    pub fn as_kroma_deposited_ref(&self) -> Option<&KromaDepositedTransactionRequest> {
+        match self {
+            KromaDeposited(tx) => Some(tx),
+            _ => None,
+        }
+    }
 
     pub fn as_legacy_mut(&mut self) -> Option<&mut TransactionRequest> {
         match self {
@@ -553,6 +650,13 @@ impl TypedTransaction {
     ) -> Option<&mut OptimismDepositedTransactionRequest> {
         match self {
             OptimismDeposited(tx) => Some(tx),
+            _ => None,
+        }
+    }
+    #[cfg(feature = "kroma")]
+    pub fn as_kroma_deposited_mut(&mut self) -> Option<&mut KromaDepositedTransactionRequest> {
+        match self {
+            KromaDeposited(tx) => Some(tx),
             _ => None,
         }
     }
@@ -609,6 +713,17 @@ impl TypedTransaction {
             },
             #[cfg(feature = "optimism")]
             OptimismDeposited(tx) => tx.tx,
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => TransactionRequest {
+                from: self.from().copied(),
+                to: self.to().cloned(),
+                nonce: self.nonce().copied(),
+                value: self.value().copied(),
+                gas: self.gas().copied(),
+                gas_price: self.gas_price(),
+                chain_id: self.chain_id(),
+                data: self.data().cloned(),
+            },
         }
     }
 }
@@ -650,6 +765,20 @@ impl TypedTransaction {
             },
             #[cfg(feature = "optimism")]
             OptimismDeposited(tx) => Eip2930TransactionRequest { tx: tx.tx, access_list },
+            #[cfg(feature = "kroma")]
+            KromaDeposited(_) => Eip2930TransactionRequest {
+                tx: TransactionRequest {
+                    from: self.from().copied(),
+                    to: self.to().cloned(),
+                    nonce: self.nonce().copied(),
+                    value: self.value().copied(),
+                    gas: self.gas().copied(),
+                    gas_price: self.gas_price(),
+                    chain_id: self.chain_id(),
+                    data: self.data().cloned(),
+                },
+                access_list,
+            },
         }
     }
 }
@@ -669,6 +798,9 @@ mod tests {
     use crate::types::{Address, U256};
     use std::str::FromStr;
 
+    #[cfg(feature = "kroma")]
+    use crate::types::transaction::kroma_deposited::KromaDepositedTransactionRequest;
+
     #[test]
     fn serde_legacy_tx() {
         let tx = TransactionRequest::new().to(Address::zero()).value(U256::from(100));
@@ -681,6 +813,44 @@ mod tests {
 
         let de: TransactionRequest = serde_json::from_str(&serialized).unwrap();
         assert_eq!(tx, TypedTransaction::Legacy(de));
+    }
+
+    #[cfg(feature = "kroma")]
+    #[test]
+    fn serde_kroma_deposited_tx() {
+        let tx = KromaDepositedTransactionRequest::new()
+            .source_hash(
+                H256::from_str(
+                    "0x03978998c47aeb48300ca2d447c39b66705f5442cf7f7b255f6fbbed8a7ff985",
+                )
+                .unwrap(),
+            )
+            .from(Address::from_str("0xdeaddeaddeaddeaddeaddeaddeaddeaddead0001").unwrap())
+            .to(Address::from_str("0x4200000000000000000000000000000000000002").unwrap())
+            .mint(U256::from(0))
+            .value(U256::from(0))
+            .gas(U256::from(1000000))
+            .data(Bytes::from_str("0xefc674eb00000000000000000000000000000000000000000000000000000000000000090000000000000000000000000000000000000000000000000000000064c31d8f00000000000000000000000000000000000000000000000000000000120535f8ef16bfe6d35d4216950df5634cb24cde7b3a183b16108d63e66d25a75f42eeaa00000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc000000000000000000000000000000000000000000000000000000000000083400000000000000000000000000000000000000000000000000000000000f424000000000000000000000000000000000000000000000000000000000000007d0").unwrap());
+        let tx: TypedTransaction = tx.into();
+        let serialized = serde_json::to_string(&tx).unwrap();
+
+        // deserializes to either the envelope type or the inner type
+        let de: TypedTransaction = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(tx, de);
+
+        let de: KromaDepositedTransactionRequest = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(tx, TypedTransaction::KromaDeposited(de));
+
+        let dummy_sig = Signature {
+            r: U256::zero(),
+            s: U256::zero(),
+            v: 0,
+        };
+        let tx_hash = tx.hash(&dummy_sig);
+        let expected_tx_hash =
+            H256::from_str("88fadf7173bfde177e03873165c4e77f60f5293a5a130294937ea47d1618f426")
+                .unwrap();
+        assert_eq!(tx_hash, expected_tx_hash)
     }
 
     #[test]

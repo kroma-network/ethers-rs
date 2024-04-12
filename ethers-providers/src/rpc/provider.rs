@@ -318,6 +318,10 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
                 let gas_price = maybe(tx.gas_price(), self.get_gas_price()).await?;
                 tx.set_gas_price(gas_price);
             }
+            #[cfg(feature = "kroma")]
+            TypedTransaction::KromaDeposited(_) => {
+                panic!("Kroma Deposited transaction is not supported.")
+            }
         }
 
         // Set gas to estimated value only if it was not set by the caller,

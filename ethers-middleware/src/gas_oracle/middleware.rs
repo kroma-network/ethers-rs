@@ -99,6 +99,10 @@ where
                     inner.tx.gas_price = Some(self.get_gas_price().await?);
                 }
             }
+            #[cfg(feature = "kroma")]
+            TypedTransaction::KromaDeposited(_) => {
+                panic!("Kroma Deposited transaction is not supported.")
+            }
         };
 
         self.inner().fill_transaction(tx, block).await.map_err(METrait::from_err)

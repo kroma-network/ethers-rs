@@ -78,6 +78,7 @@ tempfile = "3.5.0"
 default = ["ws", "rustls"]
 celo = ["ethers-core/celo"]
 optimism = ["ethers-core/optimism"]
+kroma = ["ethers-core/kroma"]
 
 ws = ["tokio-tungstenite", "futures-channel"]
 legacy-ws = ["ws"]
