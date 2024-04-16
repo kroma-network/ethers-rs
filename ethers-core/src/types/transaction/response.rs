@@ -65,17 +65,18 @@ pub struct Transaction {
     /// ECDSA signature s
     pub s: U256,
 
-    ///////////////// Optimism-specific transaction fields //////////////
+    ///////////////// Optimism/Kroma-specific transaction fields //////////////
     /// The source-hash that uniquely identifies the origin of the deposit
-    #[cfg(feature = "optimism")]
+    #[cfg(any(feature = "optimism", feature = "kroma"))]
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "sourceHash")]
     pub source_hash: Option<H256>,
 
     /// The ETH value to mint on L2
-    #[cfg(feature = "optimism")]
+    #[cfg(any(feature = "optimism", feature = "kroma"))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mint: Option<U256>,
 
+    ///////////////// Optimism-specific transaction field //////////////
     /// True if the transaction does not interact with the L2 block gas pool
     #[cfg(feature = "optimism")]
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "isSystemTx")]
@@ -206,6 +207,17 @@ impl Transaction {
                 rlp_opt(&mut rlp, &self.is_system_tx);
                 rlp.append(&self.input.as_ref());
             }
+            // Kroma Deposited Transaction
+            #[cfg(feature = "kroma")]
+            Some(x) if x == U64::from(0x7E) => {
+                rlp_opt(&mut rlp, &self.source_hash);
+                rlp.append(&self.from);
+                rlp_opt(&mut rlp, &self.to);
+                rlp_opt(&mut rlp, &self.mint);
+                rlp.append(&self.value);
+                rlp.append(&self.gas);
+                rlp.append(&self.input.as_ref());
+            }
             // L1 Message
             #[cfg(feature = "scroll")]
             Some(x) if x == U64::from(0x7E) => {
@@ -250,6 +262,12 @@ impl Transaction {
                 encoded.into()
             }
             #[cfg(feature = "optimism")]
+            Some(x) if x == U64::from(0x7E) => {
+                encoded.extend_from_slice(&[0x7E]);
+                encoded.extend_from_slice(rlp_bytes.as_ref());
+                encoded.into()
+            }
+            #[cfg(feature = "kroma")]
             Some(x) if x == U64::from(0x7E) => {
                 encoded.extend_from_slice(&[0x7E]);
                 encoded.extend_from_slice(rlp_bytes.as_ref());
@@ -367,6 +385,40 @@ impl Transaction {
         Ok(())
     }
 
+    /// Decodes fields of the type 0x7E transaction response starting at the RLP offset passed.
+    /// Increments the offset for each element parsed
+    #[cfg(feature = "kroma")]
+    fn decode_base_kroma_deposited_tx(
+        &mut self,
+        rlp: &rlp::Rlp,
+        offset: &mut usize,
+    ) -> Result<(), DecoderError> {
+        let source_hash: H256 = rlp.val_at(*offset)?;
+        self.source_hash = Some(source_hash);
+        *offset += 1;
+        self.from = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.to = Some(rlp.val_at(*offset)?);
+        *offset += 1;
+        let mint: U256 = rlp.val_at(*offset)?;
+        self.mint = Some(mint);
+        *offset += 1;
+        self.value = rlp.val_at(*offset)?;
+        *offset += 1;
+        self.gas = rlp.val_at(*offset)?;
+        *offset += 1;
+        let input = rlp::Rlp::new(rlp.at(*offset)?.as_raw()).data()?;
+        self.input = Bytes::from(input.to_vec());
+        *offset += 1;
+
+        let mint_json_string = format!("\"mint\": \"{mint:#?}\"");
+        let source_hash_json_string = format!("\"sourceHash\": \"{source_hash:#?}\"");
+        let json_value = format!("{{{mint_json_string}, {source_hash_json_string}}}");
+        self.other = serde_json::from_str(json_value.as_str()).unwrap();
+
+        Ok(())
+    }
+
     /// Decodes a legacy transaction starting at the RLP offset passed.
     /// Increments the offset for each element parsed.
     #[inline]
@@ -454,11 +506,21 @@ impl Decodable for Transaction {
                     txn.decode_base_l1_msg(&rest, &mut offset)?;
                     txn.transaction_type = Some(126u64.into())
                 }
+                #[cfg(feature = "kroma")]
+                0x7E => {
+                    txn.decode_base_kroma_deposited_tx(&rest, &mut offset)?;
+                    txn.transaction_type = Some(126u64.into())
+                }
                 _ => return Err(DecoderError::Custom("invalid tx type")),
             }
             #[cfg(feature = "scroll")]
             if first == 0x7E {
                 // L1 msg does not have signature
+                return Ok(txn)
+            }
+            #[cfg(feature = "kroma")]
+            if first == 0x7E {
+                // Kroma Deposited Transaction does not have signature
                 return Ok(txn)
             }
             let odd_y_parity: bool = rest.val_at(offset)?;
@@ -558,7 +620,7 @@ impl PartialOrd<Self> for TransactionReceipt {
 }
 
 #[cfg(test)]
-#[cfg(not(any(feature = "celo", feature = "optimism")))]
+#[cfg(not(any(feature = "celo", feature = "optimism", feature = "kroma")))]
 mod tests {
     use rlp::{Encodable, Rlp};
 

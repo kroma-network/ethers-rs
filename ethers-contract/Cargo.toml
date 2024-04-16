@@ -52,6 +52,7 @@ abigen-online = ["abigen", "ethers-contract-abigen/online"]
 
 celo = ["legacy", "ethers-core/celo", "ethers-providers/celo"]
 optimism = ["ethers-core/optimism", "ethers-providers/optimism"]
+kroma = ["ethers-core/kroma", "ethers-providers/kroma"]
 legacy = []
 
 rustls = ["ethers-contract-abigen/rustls"]

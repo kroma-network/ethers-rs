@@ -388,6 +388,8 @@ impl<M: Middleware> Multicall<M> {
             TypedTransaction::Eip1559(tx) => (tx.to, tx.data, tx.value),
             #[cfg(feature = "optimism")]
             TypedTransaction::OptimismDeposited(tx) => (tx.tx.to, tx.tx.data, tx.tx.value),
+            #[cfg(feature = "kroma")]
+            TypedTransaction::KromaDeposited(tx) => (tx.to, tx.data, tx.value),
         };
         if data.is_none() && !call.function.outputs.is_empty() {
             return self

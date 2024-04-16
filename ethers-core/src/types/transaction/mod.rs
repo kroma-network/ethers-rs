@@ -8,6 +8,9 @@ pub mod eip2930;
 #[cfg(feature = "optimism")]
 pub mod optimism_deposited;
 
+#[cfg(feature = "kroma")]
+pub mod kroma_deposited;
+
 pub mod eip712;
 
 pub(crate) const BASE_NUM_TX_FIELDS: usize = 9;

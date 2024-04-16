@@ -65,5 +65,6 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 default = ["rustls"]
 celo = ["ethers-core/celo", "ethers-providers/celo", "ethers-signers/celo", "ethers-contract/celo"]
 optimism = ["ethers-core/optimism", "ethers-providers/optimism", "ethers-contract/optimism"]
+kroma = ["ethers-core/kroma", "ethers-providers/kroma", "ethers-contract/kroma"]
 rustls = ["reqwest/rustls-tls"]
 openssl = ["reqwest/native-tls"]
